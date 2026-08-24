@@ -214,12 +214,27 @@ fi
 printf 'Gepruefter Zielcommit: %s\n\n' "$target_commit"
 effective_timezone="${TIMEZONE:-Etc/UTC}"
 if [[ -n "$CLD_TOKEN_FILE" ]]; then
-  STORAGER2_CLOUDFLARE_TOKEN_FILE="$CLD_TOKEN_FILE" \
-  STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
-    TIMEZONE="$effective_timezone" \
-    "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+  printf 'Starte privaten S2-Installer mit Cloudflare-Konfiguration...\n'
+  if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+    STORAGER2_CLOUDFLARE_TOKEN_FILE="$CLD_TOKEN_FILE" \
+    STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+      TIMEZONE="$effective_timezone" \
+      bash -x "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+  else
+    STORAGER2_CLOUDFLARE_TOKEN_FILE="$CLD_TOKEN_FILE" \
+    STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+      TIMEZONE="$effective_timezone" \
+      "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+  fi
 else
-  STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
-    TIMEZONE="$effective_timezone" \
-    "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+  printf 'Starte privaten S2-Installer ohne Cloudflare...\n'
+  if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+    STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+      TIMEZONE="$effective_timezone" \
+      bash -x "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+  else
+    STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+      TIMEZONE="$effective_timezone" \
+      "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+  fi
 fi
