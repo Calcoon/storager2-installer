@@ -56,7 +56,13 @@ patch_ct_provision_timezone() {
 
   relative_path="${provision_script#"$WORK_DIR/Storager/"}"
   if [[ "$relative_path" != "$provision_script" ]]; then
-    git -C "$WORK_DIR/Storager" update-index --skip-worktree -- "$relative_path"
+    if git -C "$WORK_DIR/Storager" ls-files --error-unmatch -- "$relative_path" >/dev/null 2>&1; then
+      if ! git -C "$WORK_DIR/Storager" update-index --skip-worktree -- "$relative_path"; then
+        warn "skip-worktree konnte fuer ${relative_path} nicht gesetzt werden"
+      fi
+    else
+      warn "Patch-Datei ${relative_path} ist nicht als git-File versioniert; skip-worktree wird uebersprungen"
+    fi
   fi
 
   ((PATCHED_TIMEZONE_FILES++))
