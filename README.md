@@ -48,7 +48,8 @@ chmod 0600 /root/.storager2-read-token /root/.storager2-cloudflare-token
 
 STORAGER2_GIT_TOKEN_FILE=/root/.storager2-read-token \
 STORAGER2_CLOUDFLARE_TOKEN_FILE=/root/.storager2-cloudflare-token \
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Calcoon/storager2-installer/main/install.sh)"
+  curl -fsSL https://raw.githubusercontent.com/Calcoon/storager2-installer/main/install.sh -o /tmp/storager2-bootstrap-install.sh && \
+  bash /tmp/storager2-bootstrap-install.sh
 ```
 
 Debug:
@@ -103,7 +104,7 @@ für absolute Konsistenz temporär per Commit-Pin arbeiten:
 
 ```bash
 curl -fsSL \
-  https://raw.githubusercontent.com/Calcoon/storager2-installer/2f49f07/install.sh
+  https://raw.githubusercontent.com/Calcoon/storager2-installer/b1e9629/install.sh
 ```
 
 GitHub Packages ist fuer diesen Bootstrap nicht erforderlich. Falls Storager 2
