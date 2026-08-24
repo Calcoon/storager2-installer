@@ -6,7 +6,8 @@ Storager-Quellcode und alle Zugangsdaten bleiben im privaten Repository.
 ## Start in der Proxmox-VE-Shell
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Calcoon/storager2-installer/main/install.sh)"
+STORAGER2_BOOTSTRAP_URL="https://raw.githubusercontent.com/Calcoon/storager2-installer/refs/heads/main/install.sh"
+bash -c "$(curl -fsSL "$STORAGER2_BOOTSTRAP_URL")"
 ```
 
 Der Bootstrap fragt standardmaessig im interaktiven Modus:
@@ -39,7 +40,7 @@ chmod 0600 /root/.storager2-read-token /root/.storager2-cloudflare-token
 
 STORAGER2_GIT_TOKEN_FILE=/root/.storager2-read-token \
 STORAGER2_CLOUDFLARE_TOKEN_FILE=/root/.storager2-cloudflare-token \
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/Calcoon/storager2-installer/main/install.sh)"
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/Calcoon/storager2-installer/refs/heads/main/install.sh)"
 ```
 
 ## Ablauf
@@ -76,10 +77,18 @@ Danach fragt der Provisioner interaktiv nach:
 
 ```bash
 curl -fsSL \
-  https://raw.githubusercontent.com/Calcoon/storager2-installer/main/install.sh \
+  https://raw.githubusercontent.com/Calcoon/storager2-installer/refs/heads/main/install.sh \
   -o /tmp/storager2-install.sh
 less /tmp/storager2-install.sh
 bash /tmp/storager2-install.sh
+```
+
+Wenn du auch bei dieser URL plötzlich eine alte Version siehst, dann kannst du
+für absolute Konsistenz temporär per Commit-Pin arbeiten:
+
+```bash
+curl -fsSL \
+  https://raw.githubusercontent.com/Calcoon/storager2-installer/88431cb8ed84a6a0862bad4881fe26c4a89b2494/install.sh
 ```
 
 GitHub Packages ist fuer diesen Bootstrap nicht erforderlich. Falls Storager 2
