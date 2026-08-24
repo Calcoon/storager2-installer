@@ -34,6 +34,7 @@ run timedatectl set-timezone "$TIMEZONE"
 PROVISION
     cat > "$destination/scripts/storager2/install.sh" <<'INNER'
 #!/bin/sh
+grep -Fq 'if ! timedatectl set-timezone "$timezone"; then' "$(dirname "$0")/ct_provision.sh" || exit 94
 printf '%s\n' "$STORAGER2_GIT_TOKEN_FILE" "$@" > "$BOOTSTRAP_TEST_RECORD"
 INNER
     chmod 0755 "$destination/scripts/storager2/install.sh"
