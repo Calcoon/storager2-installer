@@ -15,6 +15,7 @@ patch_ct_provision_timezone() {
   local patched_script
   local exit_code
   local pattern="^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\\$TIMEZONE\""
+  local relative_path
 
   [[ -f "$provision_script" ]] || return 0
   grep -Eq "$pattern" "$provision_script" \
@@ -47,6 +48,12 @@ patch_ct_provision_timezone() {
     die "Fehler beim Patchen von ct_provision.sh für tolerante Zeiteinstellung"
   fi
   mv -- "$patched_script" "$provision_script"
+
+  relative_path="${provision_script#"$WORK_DIR/Storager/"}"
+  if [[ "$relative_path" != "$provision_script" ]]; then
+    git -C "$WORK_DIR/Storager" update-index --skip-worktree -- "$relative_path"
+  fi
+
   ((PATCHED_TIMEZONE_FILES++))
 }
 
