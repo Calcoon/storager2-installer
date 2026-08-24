@@ -4,8 +4,10 @@ set -euo pipefail
 REPOSITORY_URL="https://github.com/Calcoon/Storager.git"
 CHANNEL="storager2"
 TOKEN_FILE="${STORAGER2_GIT_TOKEN_FILE:-}"
+CLD_TOKEN_FILE="${STORAGER2_CLOUDFLARE_TOKEN_FILE:-}"
 WORK_DIR=""
 ASKPASS_FILE=""
+UNATTENDED=0
 
 die() {
   printf 'Fehler: %s\n' "$*" >&2
@@ -36,9 +38,25 @@ Lauf benoetigt dessen dokumentierte STORAGER2_INSTALL_*-Umgebungswerte.
 EOF
 }
 
+check_token_file() {
+  local file="$1" context="$2"
+
+  [[ "$file" == /* && "$file" != "/" ]] \
+    || die "$context-Token-Datei muss als absoluter Pfad angegeben werden"
+  [[ -f "$file" && ! -L "$file" && -s "$file" ]] \
+    || die "$context-Token-Datei fehlt, ist leer oder ein Symlink"
+  [[ "$(readlink -f -- "$file")" == "$file" ]] \
+    || die "$context-Token-Datei muss ein kanonischer Pfad sein"
+  local file_mode
+  file_mode="$(stat -c '%a' "$file")"
+  [[ "$file_mode" == "600" || "$file_mode" == "400" ]] \
+    || die "$context-Token-Datei muss Modus 0600 oder 0400 haben"
+}
+
 for argument in "$@"; do
   case "$argument" in
-    --dry-run|--unattended) ;;
+    --dry-run) ;;
+    --unattended) UNATTENDED=1 ;;
     --help|-h) usage; exit 0 ;;
     *) die "Unbekannte Option: $argument" ;;
   esac
@@ -58,21 +76,42 @@ require_command pct
 [[ -z "${STORAGER2_GIT_TOKEN:-}" ]] \
   || die "Git-Token nicht als Environmentwert uebergeben; nur STORAGER2_GIT_TOKEN_FILE verwenden"
 
-if [[ -z "$TOKEN_FILE" ]]; then
-  read -r -p "Pfad zur read-only GitHub-Token-Datei (0600): " TOKEN_FILE
-fi
-[[ "$TOKEN_FILE" == /* && "$TOKEN_FILE" != "/" ]] \
-  || die "GitHub-Token-Datei muss als absoluter Pfad angegeben werden"
-[[ -f "$TOKEN_FILE" && ! -L "$TOKEN_FILE" && -s "$TOKEN_FILE" ]] \
-  || die "GitHub-Token-Datei fehlt, ist leer oder ein Symlink"
-[[ "$(readlink -f -- "$TOKEN_FILE")" == "$TOKEN_FILE" ]] \
-  || die "GitHub-Token-Datei muss ein kanonischer Pfad sein"
-token_mode="$(stat -c '%a' "$TOKEN_FILE")"
-[[ "$token_mode" == "600" || "$token_mode" == "400" ]] \
-  || die "GitHub-Token-Datei muss Modus 0600 oder 0400 haben"
-
 WORK_DIR="$(mktemp -d /tmp/storager2-installer.XXXXXX)"
 chmod 0700 "$WORK_DIR"
+
+if [[ -z "$TOKEN_FILE" ]]; then
+  if (( UNATTENDED )); then
+    die "STORAGER2_GIT_TOKEN_FILE ist im --unattended-Modus erforderlich"
+  fi
+  if [[ ! -t 0 ]]; then
+    die "Keine TTY im interaktiven Modus; bitte STORAGER2_GIT_TOKEN_FILE setzen"
+  fi
+  IFS= read -r -s -p "GitHub Fine-grained PAT fuer Calcoon/Storager eingeben: " GIT_TOKEN_INPUT
+  printf '\n'
+  if [[ -z "${GIT_TOKEN_INPUT:-}" ]]; then
+    die "GitHub Token darf nicht leer sein"
+  fi
+  TOKEN_FILE="$(mktemp "$WORK_DIR/.storager2-read-token.XXXXXX")"
+  printf '%s\n' "$GIT_TOKEN_INPUT" > "$TOKEN_FILE"
+  chmod 0600 "$TOKEN_FILE"
+  unset GIT_TOKEN_INPUT
+fi
+check_token_file "$TOKEN_FILE" "GitHub"
+
+if [[ -z "$CLD_TOKEN_FILE" ]] && (( !UNATTENDED )) && [[ -t 0 ]]; then
+  IFS= read -r -s -p "Cloudflare-Token fuer Tunnel eingeben [optional, Enter=ueberspringen]: " CLOUDFLARE_TOKEN_INPUT
+  printf '\n'
+  if [[ -n "${CLOUDFLARE_TOKEN_INPUT:-}" ]]; then
+    CLD_TOKEN_FILE="$(mktemp "$WORK_DIR/.storager2-cloudflare-token.XXXXXX")"
+    printf '%s\n' "$CLOUDFLARE_TOKEN_INPUT" > "$CLD_TOKEN_FILE"
+    chmod 0600 "$CLD_TOKEN_FILE"
+  fi
+  unset CLOUDFLARE_TOKEN_INPUT
+fi
+
+if [[ -n "$CLD_TOKEN_FILE" ]]; then
+  check_token_file "$CLD_TOKEN_FILE" "Cloudflare"
+fi
 ASKPASS_FILE="$(mktemp "$WORK_DIR/askpass.XXXXXX")"
 chmod 0700 "$ASKPASS_FILE"
 cat > "$ASKPASS_FILE" <<'EOF'
@@ -103,5 +142,11 @@ remote_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'refs/remotes/origin/stor
   || die "Der geladene Stand enthaelt keinen ausfuehrbaren S2-Installer"
 
 printf 'Gepruefter Zielcommit: %s\n\n' "$target_commit"
-STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
-  "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+if [[ -n "$CLD_TOKEN_FILE" ]]; then
+  STORAGER2_CLOUDFLARE_TOKEN_FILE="$CLD_TOKEN_FILE" \
+  STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+    "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+else
+  STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+    "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+fi
