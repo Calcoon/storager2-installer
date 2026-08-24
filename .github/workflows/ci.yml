@@ -1,0 +1,23 @@
+name: Bootstrap checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Validate shell syntax
+        run: bash -n install.sh tests/bootstrap_test.sh
+      - name: Run ShellCheck
+        run: shellcheck install.sh tests/bootstrap_test.sh
+      - name: Test bootstrap contract
+        run: tests/bootstrap_test.sh
