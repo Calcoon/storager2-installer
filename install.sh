@@ -8,14 +8,16 @@ CLD_TOKEN_FILE="${STORAGER2_CLOUDFLARE_TOKEN_FILE:-}"
 WORK_DIR=""
 ASKPASS_FILE=""
 UNATTENDED=0
+PATCHED_TIMEZONE_FILES=0
 
 patch_ct_provision_timezone() {
   local provision_script="$1"
   local patched_script
   local exit_code
+  local pattern='^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\$TIMEZONE\"'
 
   [[ -f "$provision_script" ]] || return 0
-  grep -Fq 'run timedatectl set-timezone "$TIMEZONE"' "$provision_script" \
+  grep -Eq "$pattern" "$provision_script" \
     || return 0
   grep -Fq 'if ! timedatectl set-timezone "$TIMEZONE"; then' "$provision_script" \
     && return 0
@@ -24,14 +26,16 @@ patch_ct_provision_timezone() {
     || die "Fehler beim Erstellen des temporären Patch-Kontexts"
   awk '
     {
-      if ($0 == "run timedatectl set-timezone \"$TIMEZONE\"") {
-        print "if ! timedatectl set-timezone \"$TIMEZONE\"; then"
-        print "  warn \"Zeitzone konnte nicht gesetzt werden; verwende den Standard der LXC\""
-        print "  if [[ -f \"/usr/share/zoneinfo/$TIMEZONE\" ]]; then"
-        print "    ln -snf \"/usr/share/zoneinfo/$TIMEZONE\" /etc/localtime"
-        print "    printf \"%s\\\\n\" \"$TIMEZONE\" > /etc/timezone"
-        print "  fi"
-        print "fi"
+      if ($0 ~ /^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\\$TIMEZONE\"[[:space:]]*$/) {
+        match($0, /^[[:space:]]*/)
+        indent = substr($0, 1, RLENGTH)
+        print indent "if ! timedatectl set-timezone \"$TIMEZONE\"; then"
+        print indent "  warn \"Zeitzone konnte nicht gesetzt werden; verwende den Standard der LXC\""
+        print indent "  if [[ -f \"/usr/share/zoneinfo/$TIMEZONE\" ]]; then"
+        print indent "    ln -snf \"/usr/share/zoneinfo/$TIMEZONE\" /etc/localtime"
+        print indent "    printf \"%s\\\\n\" \"$TIMEZONE\" > /etc/timezone"
+        print indent "  fi"
+        print indent "fi"
       } else {
         print
       }
@@ -43,6 +47,7 @@ patch_ct_provision_timezone() {
     die "Fehler beim Patchen von ct_provision.sh für tolerante Zeiteinstellung"
   fi
   mv -- "$patched_script" "$provision_script"
+  ((PATCHED_TIMEZONE_FILES++))
 }
 
 die() {
@@ -174,7 +179,22 @@ target_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'HEAD^{commit}')"
 remote_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'refs/remotes/origin/storager2^{commit}')"
 [[ "$target_commit" == "$remote_commit" ]] \
   || die "Checkout und origin/storager2 stimmen nicht ueberein"
-patch_ct_provision_timezone "$WORK_DIR/Storager/scripts/storager2/ct_provision.sh"
+patch_targets=()
+while IFS= read -r -d '' file; do
+  patch_targets+=("$file")
+done < <(find "$WORK_DIR/Storager" -type f -name "ct_provision.sh" -print0)
+
+if ((${#patch_targets[@]} == 0)); then
+  die "Keine ct_provision.sh im geladenen Storager-Checkout gefunden"
+fi
+
+for target in "${patch_targets[@]}"; do
+  patch_ct_provision_timezone "$target"
+done
+
+if (( PATCHED_TIMEZONE_FILES > 0 )); then
+  printf 'ct_provision-Zeitbereichs-Konfiguration tolerant gepatcht in %s Datei(en)\n' "$PATCHED_TIMEZONE_FILES"
+fi
 [[ -x "$WORK_DIR/Storager/scripts/storager2/install.sh" ]] \
   || die "Der geladene Stand enthaelt keinen ausfuehrbaren S2-Installer"
 
