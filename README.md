@@ -6,8 +6,16 @@ Storager-Quellcode und alle Zugangsdaten bleiben im privaten Repository.
 ## Start in der Proxmox-VE-Shell
 
 ```bash
-STORAGER2_BOOTSTRAP_URL="https://raw.githubusercontent.com/Calcoon/storager2-installer/refs/heads/main/install.sh"
-bash -c "$(curl -fsSL "$STORAGER2_BOOTSTRAP_URL")"
+STORAGER2_BOOTSTRAP_URL="https://raw.githubusercontent.com/Calcoon/storager2-installer/main/install.sh"
+curl -fsSL "$STORAGER2_BOOTSTRAP_URL" -o /tmp/storager2-bootstrap-install.sh
+bash /tmp/storager2-bootstrap-install.sh
+```
+
+Wenn du sehen willst, wo es nach dem Checkout hängt:
+
+```bash
+STORAGER2_BOOTSTRAP_TRACE=1 \
+  bash /tmp/storager2-bootstrap-install.sh
 ```
 
 Der Bootstrap fragt standardmaessig im interaktiven Modus:
@@ -40,7 +48,14 @@ chmod 0600 /root/.storager2-read-token /root/.storager2-cloudflare-token
 
 STORAGER2_GIT_TOKEN_FILE=/root/.storager2-read-token \
 STORAGER2_CLOUDFLARE_TOKEN_FILE=/root/.storager2-cloudflare-token \
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/Calcoon/storager2-installer/refs/heads/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Calcoon/storager2-installer/main/install.sh)"
+```
+
+Debug:
+
+```bash
+STORAGER2_BOOTSTRAP_TRACE=1 \
+  bash /tmp/storager2-bootstrap-install.sh
 ```
 
 ## Ablauf
@@ -77,7 +92,7 @@ Danach fragt der Provisioner interaktiv nach:
 
 ```bash
 curl -fsSL \
-  https://raw.githubusercontent.com/Calcoon/storager2-installer/refs/heads/main/install.sh \
+  https://raw.githubusercontent.com/Calcoon/storager2-installer/main/install.sh \
   -o /tmp/storager2-install.sh
 less /tmp/storager2-install.sh
 bash /tmp/storager2-install.sh
@@ -88,7 +103,7 @@ für absolute Konsistenz temporär per Commit-Pin arbeiten:
 
 ```bash
 curl -fsSL \
-  https://raw.githubusercontent.com/Calcoon/storager2-installer/24e76fb31f2f4b0fb2f6fc9a6be8cb1f6cb3cbf1/install.sh
+  https://raw.githubusercontent.com/Calcoon/storager2-installer/2f49f07/install.sh
 ```
 
 GitHub Packages ist fuer diesen Bootstrap nicht erforderlich. Falls Storager 2
