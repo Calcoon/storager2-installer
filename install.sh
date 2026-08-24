@@ -15,12 +15,13 @@ patch_ct_provision_timezone() {
   local patched_script
   local exit_code
   local pattern="^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\\$TIMEZONE\""
+  local already_patched_pattern='if ! timedatectl set-timezone '$'"$timezone"; then'
   local relative_path
 
   [[ -f "$provision_script" ]] || return 0
   grep -Eq "$pattern" "$provision_script" \
     || return 0
-  grep -Fq "if ! timedatectl set-timezone \"\\$TIMEZONE\"; then" "$provision_script" \
+  grep -Fq "$already_patched_pattern" "$provision_script" \
     && return 0
 
   patched_script="$(mktemp "${WORK_DIR}/.storager2-ct-provision.XXXXXX")" \
@@ -30,11 +31,12 @@ patch_ct_provision_timezone() {
       if ($0 ~ /^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\\$TIMEZONE\"[[:space:]]*$/) {
         match($0, /^[[:space:]]*/)
         indent = substr($0, 1, RLENGTH)
-        print indent "if ! timedatectl set-timezone \"$TIMEZONE\"; then"
+        print indent "timezone=\"${TIMEZONE:-Etc/UTC}\""
+        print indent "if ! timedatectl set-timezone \"$timezone\"; then"
         print indent "  warn \"Zeitzone konnte nicht gesetzt werden; verwende den Standard der LXC\""
-        print indent "  if [[ -f \"/usr/share/zoneinfo/$TIMEZONE\" ]]; then"
-        print indent "    ln -snf \"/usr/share/zoneinfo/$TIMEZONE\" /etc/localtime"
-        print indent "    printf \"%s\\\\n\" \"$TIMEZONE\" > /etc/timezone"
+        print indent "  if [[ -f \"/usr/share/zoneinfo/$timezone\" ]]; then"
+        print indent "    ln -snf \"/usr/share/zoneinfo/$timezone\" /etc/localtime"
+        print indent "    printf \"%s\\\\n\" \"$timezone\" > /etc/timezone"
         print indent "  fi"
         print indent "fi"
       } else {
