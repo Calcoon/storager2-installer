@@ -55,6 +55,10 @@ die() {
   exit 1
 }
 
+warn() {
+  printf 'Warnung: %s\n' "$*" >&2
+}
+
 cleanup() {
   local status=$?
   [[ -z "$ASKPASS_FILE" ]] || rm -f -- "$ASKPASS_FILE"
@@ -185,7 +189,7 @@ while IFS= read -r -d '' file; do
 done < <(find "$WORK_DIR/Storager" -type f -name "ct_provision.sh" -print0)
 
 if ((${#patch_targets[@]} == 0)); then
-  die "Keine ct_provision.sh im geladenen Storager-Checkout gefunden"
+  warn "Keine ct_provision.sh im geladenen Storager-Checkout gefunden; Fortsetzung ohne Patch"
 fi
 
 for target in "${patch_targets[@]}"; do
