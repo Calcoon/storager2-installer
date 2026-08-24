@@ -31,7 +31,7 @@ patch_ct_provision_timezone() {
     || die "Fehler beim Erstellen des temporären Patch-Kontexts"
   awk '
     {
-      if ($0 ~ /^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\\$TIMEZONE\"[[:space:]]*$/) {
+      if ($0 ~ /^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\$TIMEZONE\"[[:space:]]*$/) {
         match($0, /^[[:space:]]*/)
         indent = substr($0, 1, RLENGTH)
         print indent "timezone=\"${TIMEZONE:-Etc/UTC}\""
