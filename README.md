@@ -57,6 +57,13 @@ Danach fragt der Provisioner interaktiv nach:
 - optional `cloudflared`, separaten S2-Host und Tunnel-Token-Datei
 - abschliessende Bestaetigung vor der ersten dauerhaften Aenderung
 
+## Cloudflare-URL und Tunnel-Token in der Praxis
+
+- Im Installer gibst du den **öffentlichen Hostnamen** z. B. `storagerv2.frigen.de` ein.
+- Der Cloudflare-Dienst wird im Container als Tunnel-Ziel auf `http://127.0.0.1:8000` konfiguriert.
+- Beim Token-Dialog gibst du immer nur den **rohen Token-String** ein.
+  `--token` wird nicht verwendet.
+
 ## Sicherheitsgrenzen
 
 - Der Zielchannel ist fest `storager2`.

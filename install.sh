@@ -9,6 +9,42 @@ WORK_DIR=""
 ASKPASS_FILE=""
 UNATTENDED=0
 
+patch_ct_provision_timezone() {
+  local provision_script="$1"
+  local patched_script
+  local exit_code
+
+  [[ -f "$provision_script" ]] || return 0
+  grep -Fq 'run timedatectl set-timezone "$TIMEZONE"' "$provision_script" \
+    || return 0
+  grep -Fq 'if ! timedatectl set-timezone "$TIMEZONE"; then' "$provision_script" \
+    && return 0
+
+  patched_script="$(mktemp "${WORK_DIR}/.storager2-ct-provision.XXXXXX")" \
+    || die "Fehler beim Erstellen des temporären Patch-Kontexts"
+  awk '
+    {
+      if ($0 == "run timedatectl set-timezone \"$TIMEZONE\"") {
+        print "if ! timedatectl set-timezone \"$TIMEZONE\"; then"
+        print "  warn \"Zeitzone konnte nicht gesetzt werden; verwende den Standard der LXC\""
+        print "  if [[ -f \"/usr/share/zoneinfo/$TIMEZONE\" ]]; then"
+        print "    ln -snf \"/usr/share/zoneinfo/$TIMEZONE\" /etc/localtime"
+        print "    printf \"%s\\\\n\" \"$TIMEZONE\" > /etc/timezone"
+        print "  fi"
+        print "fi"
+      } else {
+        print
+      }
+    }
+  ' "$provision_script" > "$patched_script"
+  exit_code=$?
+  if [[ "$exit_code" -ne 0 ]]; then
+    rm -f -- "$patched_script"
+    die "Fehler beim Patchen von ct_provision.sh für tolerante Zeiteinstellung"
+  fi
+  mv -- "$patched_script" "$provision_script"
+}
+
 die() {
   printf 'Fehler: %s\n' "$*" >&2
   exit 1
@@ -138,6 +174,7 @@ target_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'HEAD^{commit}')"
 remote_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'refs/remotes/origin/storager2^{commit}')"
 [[ "$target_commit" == "$remote_commit" ]] \
   || die "Checkout und origin/storager2 stimmen nicht ueberein"
+patch_ct_provision_timezone "$WORK_DIR/Storager/scripts/storager2/ct_provision.sh"
 [[ -x "$WORK_DIR/Storager/scripts/storager2/install.sh" ]] \
   || die "Der geladene Stand enthaelt keinen ausfuehrbaren S2-Installer"
 
