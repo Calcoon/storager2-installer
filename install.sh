@@ -14,8 +14,8 @@ patch_ct_provision_timezone() {
   local provision_script="$1"
   local patched_script
   local exit_code
-  local pattern="^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\\$TIMEZONE\""
-  local already_patched_pattern='if ! timedatectl set-timezone '$'"$timezone"; then'
+  local pattern=$'^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+"\$TIMEZONE"'
+  local already_patched_pattern=$'if ! timedatectl set-timezone "$timezone"; then'
   local relative_path
 
   [[ -f "$provision_script" ]] || return 0
