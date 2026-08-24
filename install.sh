@@ -14,12 +14,12 @@ patch_ct_provision_timezone() {
   local provision_script="$1"
   local patched_script
   local exit_code
-  local pattern='^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\$TIMEZONE\"'
+  local pattern="^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\\$TIMEZONE\""
 
   [[ -f "$provision_script" ]] || return 0
   grep -Eq "$pattern" "$provision_script" \
     || return 0
-  grep -Fq 'if ! timedatectl set-timezone "$TIMEZONE"; then' "$provision_script" \
+  grep -Fq "if ! timedatectl set-timezone \"\\$TIMEZONE\"; then" "$provision_script" \
     && return 0
 
   patched_script="$(mktemp "${WORK_DIR}/.storager2-ct-provision.XXXXXX")" \
