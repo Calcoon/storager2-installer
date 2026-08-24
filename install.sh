@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+  set -x
+fi
 
 REPOSITORY_URL="https://github.com/Calcoon/Storager.git"
 CHANNEL="storager2"
@@ -182,14 +185,17 @@ GIT_TERMINAL_PROMPT=0 \
 STORAGER2_BOOTSTRAP_TOKEN_FILE="$TOKEN_FILE" \
   git clone --quiet --filter=blob:none --single-branch --branch "$CHANNEL" \
     "$REPOSITORY_URL" "$WORK_DIR/Storager"
+printf 'Bootstrap-Checkout abgeschlossen.\n'
 rm -f -- "$ASKPASS_FILE"
 ASKPASS_FILE=""
 
 checkout_channel="$(git -C "$WORK_DIR/Storager" branch --show-current)"
+printf 'Checkout-Branch: %s\n' "${checkout_channel:-[keiner]}"
 [[ "$checkout_channel" == "$CHANNEL" ]] \
   || die "Geladener Channel ist nicht storager2"
 target_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'HEAD^{commit}')"
 remote_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'refs/remotes/origin/storager2^{commit}')"
+printf 'Ziel-Commit: %s\nRemote-Commit: %s\n' "$target_commit" "$remote_commit"
 [[ "$target_commit" == "$remote_commit" ]] \
   || die "Checkout und origin/storager2 stimmen nicht ueberein"
 patch_targets=()
@@ -215,26 +221,41 @@ printf 'Gepruefter Zielcommit: %s\n\n' "$target_commit"
 effective_timezone="${TIMEZONE:-Etc/UTC}"
 if [[ -n "$CLD_TOKEN_FILE" ]]; then
   printf 'Starte privaten S2-Installer mit Cloudflare-Konfiguration...\n'
-  if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
-    STORAGER2_CLOUDFLARE_TOKEN_FILE="$CLD_TOKEN_FILE" \
-    STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
-      TIMEZONE="$effective_timezone" \
-      bash -x "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
-  else
-    STORAGER2_CLOUDFLARE_TOKEN_FILE="$CLD_TOKEN_FILE" \
-    STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
-      TIMEZONE="$effective_timezone" \
-      "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
-  fi
+  printf '  GitHub-Token-Datei: %s\n' "$TOKEN_FILE"
+  printf '  Cloudflare-Token-Datei: %s\n' "$CLD_TOKEN_FILE"
 else
   printf 'Starte privaten S2-Installer ohne Cloudflare...\n'
-  if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+  printf '  GitHub-Token-Datei: %s\n' "$TOKEN_FILE"
+fi
+__storager2_bootstrap_rc=0
+if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+  if [[ -n "$CLD_TOKEN_FILE" ]]; then
+    STORAGER2_CLOUDFLARE_TOKEN_FILE="$CLD_TOKEN_FILE" \
     STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
       TIMEZONE="$effective_timezone" \
-      bash -x "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+      bash -x "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@" \
+      || __storager2_bootstrap_rc=$?
   else
     STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
       TIMEZONE="$effective_timezone" \
-      "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@"
+      bash -x "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@" \
+      || __storager2_bootstrap_rc=$?
   fi
+else
+  if [[ -n "$CLD_TOKEN_FILE" ]]; then
+    STORAGER2_CLOUDFLARE_TOKEN_FILE="$CLD_TOKEN_FILE" \
+    STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+      TIMEZONE="$effective_timezone" \
+      "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@" \
+      || __storager2_bootstrap_rc=$?
+  else
+    STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+      TIMEZONE="$effective_timezone" \
+      "$WORK_DIR/Storager/scripts/storager2/install.sh" "$@" \
+      || __storager2_bootstrap_rc=$?
+  fi
+fi
+
+if (( __storager2_bootstrap_rc != 0 )); then
+  die "Der private S2-Installer ist mit Fehlercode ${__storager2_bootstrap_rc} beendet."
 fi
