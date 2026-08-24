@@ -65,7 +65,9 @@ patch_ct_provision_timezone() {
     fi
   fi
 
-  ((PATCHED_TIMEZONE_FILES++))
+  # With `set -e`, post-increment returns status 1 for the initial zero value
+  # and would abort the bootstrap immediately after the first successful patch.
+  ((++PATCHED_TIMEZONE_FILES))
 }
 
 die() {
@@ -149,6 +151,10 @@ if [[ -z "$TOKEN_FILE" ]]; then
   if [[ ! -t 0 ]]; then
     die "Keine TTY im interaktiven Modus; bitte STORAGER2_GIT_TOKEN_FILE setzen"
   fi
+  # `set -x` would otherwise disclose the entered token in later conditionals.
+  if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+    set +x
+  fi
   IFS= read -r -s -p "GitHub Fine-grained PAT fuer Calcoon/Storager eingeben: " GIT_TOKEN_INPUT
   printf '\n'
   if [[ -z "${GIT_TOKEN_INPUT:-}" ]]; then
@@ -158,10 +164,17 @@ if [[ -z "$TOKEN_FILE" ]]; then
   printf '%s\n' "$GIT_TOKEN_INPUT" > "$TOKEN_FILE"
   chmod 0600 "$TOKEN_FILE"
   unset GIT_TOKEN_INPUT
+  if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+    set -x
+  fi
 fi
 check_token_file "$TOKEN_FILE" "GitHub"
 
 if [[ -z "$CLD_TOKEN_FILE" ]] && (( !UNATTENDED )) && [[ -t 0 ]]; then
+  # Keep optional tunnel credentials out of bootstrap trace logs as well.
+  if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+    set +x
+  fi
   IFS= read -r -s -p "Cloudflare-Token fuer Tunnel eingeben [optional, Enter=ueberspringen]: " CLOUDFLARE_TOKEN_INPUT
   printf '\n'
   if [[ -n "${CLOUDFLARE_TOKEN_INPUT:-}" ]]; then
@@ -170,6 +183,9 @@ if [[ -z "$CLD_TOKEN_FILE" ]] && (( !UNATTENDED )) && [[ -t 0 ]]; then
     chmod 0600 "$CLD_TOKEN_FILE"
   fi
   unset CLOUDFLARE_TOKEN_INPUT
+  if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
+    set -x
+  fi
 fi
 
 if [[ -n "$CLD_TOKEN_FILE" ]]; then

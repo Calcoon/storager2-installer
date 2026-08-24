@@ -29,6 +29,9 @@ case "$1" in
     case "$*" in *"x-access-token"*|*"test-token-never-log"*) exit 91 ;; esac
     destination="${@: -1}"
     mkdir -p "$destination/scripts/storager2"
+    cat > "$destination/scripts/storager2/ct_provision.sh" <<'PROVISION'
+run timedatectl set-timezone "$TIMEZONE"
+PROVISION
     cat > "$destination/scripts/storager2/install.sh" <<'INNER'
 #!/bin/sh
 printf '%s\n' "$STORAGER2_GIT_TOKEN_FILE" "$@" > "$BOOTSTRAP_TEST_RECORD"
@@ -39,6 +42,7 @@ INNER
     case "$3" in
       branch) printf 'storager2\n' ;;
       rev-parse) printf '%040d\n' 7 ;;
+      ls-files|update-index) ;;
       *) exit 92 ;;
     esac
     ;;
@@ -58,6 +62,7 @@ output="$({
     "$REPO_ROOT/install.sh" --dry-run
 } 2>&1)"
 [[ "$output" == *"Gepruefter Zielcommit"* ]]
+[[ "$output" == *"ct_provision-Zeitbereichs-Konfiguration tolerant gepatcht in 1 Datei(en)"* ]]
 [[ "$output" != *"test-token-never-log"* ]]
 mapfile -t record < "$RECORD_FILE"
 [[ "${record[0]}" == "$TOKEN_FILE" ]]
