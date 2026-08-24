@@ -88,7 +88,7 @@ für absolute Konsistenz temporär per Commit-Pin arbeiten:
 
 ```bash
 curl -fsSL \
-  https://raw.githubusercontent.com/Calcoon/storager2-installer/998e102e1fc78f582a92e471354f575b221540ca/install.sh
+  https://raw.githubusercontent.com/Calcoon/storager2-installer/6487fdad104005cd28ceaf282f99d308b88ec6aa/install.sh
 ```
 
 GitHub Packages ist fuer diesen Bootstrap nicht erforderlich. Falls Storager 2
