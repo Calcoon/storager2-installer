@@ -76,7 +76,7 @@ Danach fragt der Provisioner interaktiv nach:
 
 ## Cloudflare-URL und Tunnel-Token in der Praxis
 
-- Im Installer gibst du den **öffentlichen Hostnamen** z. B. `storagerv2.frigen.de` ein.
+- Im Installer gibst du den **öffentlichen Hostnamen** z. B. `XYZ.XXY.de` ein.
 - Der Cloudflare-Dienst wird im Container als Tunnel-Ziel auf `http://127.0.0.1:8000` konfiguriert.
 - Beim Token-Dialog gibst du immer nur den **rohen Token-String** ein.
   `--token` wird nicht verwendet.
