@@ -5,78 +5,16 @@ if [[ "${STORAGER2_BOOTSTRAP_TRACE:-0}" == "1" ]]; then
 fi
 
 REPOSITORY_URL="https://github.com/Calcoon/Storager.git"
-CHANNEL="storager2"
+TARGET_BRANCH="storager"
 TOKEN_FILE="${STORAGER2_GIT_TOKEN_FILE:-}"
 CLD_TOKEN_FILE="${STORAGER2_CLOUDFLARE_TOKEN_FILE:-}"
 WORK_DIR=""
 ASKPASS_FILE=""
 UNATTENDED=0
-PATCHED_TIMEZONE_FILES=0
-
-patch_ct_provision_timezone() {
-  local provision_script="$1"
-  local patched_script
-  local exit_code
-  local pattern=$'^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+"\$TIMEZONE"'
-  local already_patched_pattern=$'if ! timedatectl set-timezone "$timezone"; then'
-  local relative_path
-
-  [[ -f "$provision_script" ]] || return 0
-  grep -Eq "$pattern" "$provision_script" \
-    || return 0
-  grep -Fq "$already_patched_pattern" "$provision_script" \
-    && return 0
-
-  patched_script="$(mktemp "${WORK_DIR}/.storager2-ct-provision.XXXXXX")" \
-    || die "Fehler beim Erstellen des temporären Patch-Kontexts"
-  awk '
-    {
-      if ($0 ~ /^[[:space:]]*run[[:space:]]+timedatectl[[:space:]]+set-timezone[[:space:]]+\"\$TIMEZONE\"[[:space:]]*$/) {
-        match($0, /^[[:space:]]*/)
-        indent = substr($0, 1, RLENGTH)
-        print indent "timezone=\"${TIMEZONE:-Etc/UTC}\""
-        print indent "if ! timedatectl set-timezone \"$timezone\"; then"
-        print indent "  warn \"Zeitzone konnte nicht gesetzt werden; verwende den Standard der LXC\""
-        print indent "  if [[ -f \"/usr/share/zoneinfo/$timezone\" ]]; then"
-        print indent "    ln -snf \"/usr/share/zoneinfo/$timezone\" /etc/localtime"
-        print indent "    printf \"%s\\\\n\" \"$timezone\" > /etc/timezone"
-        print indent "  fi"
-        print indent "fi"
-      } else {
-        print
-      }
-    }
-  ' "$provision_script" > "$patched_script"
-  exit_code=$?
-  if [[ "$exit_code" -ne 0 ]]; then
-    rm -f -- "$patched_script"
-    die "Fehler beim Patchen von ct_provision.sh für tolerante Zeiteinstellung"
-  fi
-  mv -- "$patched_script" "$provision_script"
-
-  relative_path="${provision_script#"$WORK_DIR/Storager/"}"
-  if [[ "$relative_path" != "$provision_script" ]]; then
-    if git -C "$WORK_DIR/Storager" ls-files --error-unmatch -- "$relative_path" >/dev/null 2>&1; then
-      if ! git -C "$WORK_DIR/Storager" update-index --skip-worktree -- "$relative_path"; then
-        warn "skip-worktree konnte fuer ${relative_path} nicht gesetzt werden"
-      fi
-    else
-      warn "Patch-Datei ${relative_path} ist nicht als git-File versioniert; skip-worktree wird uebersprungen"
-    fi
-  fi
-
-  # With `set -e`, post-increment returns status 1 for the initial zero value
-  # and would abort the bootstrap immediately after the first successful patch.
-  ((++PATCHED_TIMEZONE_FILES))
-}
 
 die() {
   printf 'Fehler: %s\n' "$*" >&2
   exit 1
-}
-
-warn() {
-  printf 'Warnung: %s\n' "$*" >&2
 }
 
 cleanup() {
@@ -128,7 +66,7 @@ for argument in "$@"; do
 done
 
 printf '\nStorager 2 · interaktiver Proxmox-LXC-Installer\n'
-printf 'Quelle: %s · Channel: %s\n\n' "$REPOSITORY_URL" "$CHANNEL"
+printf 'Quelle: %s · Branch: %s\n\n' "$REPOSITORY_URL" "$TARGET_BRANCH"
 printf 'Der Bootstrap legt nur einen temporaeren Checkout unter /tmp an.\n'
 printf 'Storager 1 und bestehende Container werden nicht als Ziel verwendet.\n\n'
 
@@ -201,11 +139,11 @@ case "$1" in
 esac
 EOF
 
-printf 'Lade den privaten, aktuellen Storager-2-Installationsstand ...\n'
+printf 'Lade den privaten, aktuellen Storager-Installationsstand ...\n'
 GIT_ASKPASS="$ASKPASS_FILE" \
 GIT_TERMINAL_PROMPT=0 \
 STORAGER2_BOOTSTRAP_TOKEN_FILE="$TOKEN_FILE" \
-  git clone --quiet --filter=blob:none --single-branch --branch "$CHANNEL" \
+  git clone --quiet --filter=blob:none --single-branch --branch "$TARGET_BRANCH" \
     "$REPOSITORY_URL" "$WORK_DIR/Storager"
 printf 'Bootstrap-Checkout abgeschlossen.\n'
 rm -f -- "$ASKPASS_FILE"
@@ -213,29 +151,13 @@ ASKPASS_FILE=""
 
 checkout_channel="$(git -C "$WORK_DIR/Storager" branch --show-current)"
 printf 'Checkout-Branch: %s\n' "${checkout_channel:-[keiner]}"
-[[ "$checkout_channel" == "$CHANNEL" ]] \
-  || die "Geladener Channel ist nicht storager2"
+[[ "$checkout_channel" == "$TARGET_BRANCH" ]] \
+  || die "Geladener Branch ist nicht storager"
 target_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'HEAD^{commit}')"
-remote_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'refs/remotes/origin/storager2^{commit}')"
+remote_commit="$(git -C "$WORK_DIR/Storager" rev-parse 'refs/remotes/origin/storager^{commit}')"
 printf 'Ziel-Commit: %s\nRemote-Commit: %s\n' "$target_commit" "$remote_commit"
 [[ "$target_commit" == "$remote_commit" ]] \
-  || die "Checkout und origin/storager2 stimmen nicht ueberein"
-patch_targets=()
-while IFS= read -r -d '' file; do
-  patch_targets+=("$file")
-done < <(find "$WORK_DIR/Storager" -type f -name "ct_provision.sh" -print0)
-
-if ((${#patch_targets[@]} == 0)); then
-  warn "Keine ct_provision.sh im geladenen Storager-Checkout gefunden; Fortsetzung ohne Patch"
-fi
-
-for target in "${patch_targets[@]}"; do
-  patch_ct_provision_timezone "$target"
-done
-
-if (( PATCHED_TIMEZONE_FILES > 0 )); then
-  printf 'ct_provision-Zeitbereichs-Konfiguration tolerant gepatcht in %s Datei(en)\n' "$PATCHED_TIMEZONE_FILES"
-fi
+  || die "Checkout und origin/storager stimmen nicht ueberein"
 [[ -x "$WORK_DIR/Storager/scripts/storager2/install.sh" ]] \
   || die "Der geladene Stand enthaelt keinen ausfuehrbaren S2-Installer"
 
