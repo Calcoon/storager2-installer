@@ -61,7 +61,7 @@ STORAGER2_BOOTSTRAP_TRACE=1 \
 
 ## Ablauf
 
-Der Bootstrap lädt den privaten `storager2`-Channel temporär nach `/tmp`, prüft
+Der Bootstrap lädt den privaten Git-Branch `storager` temporär nach `/tmp`, prüft
 den Checkout, und startet danach den versiehenen S2-Installer im selben Lauf.
 Der temporaere Checkout und das Askpass-Skript werden beim Beenden entfernt.
 Die vom Betreiber bereitgestellten Token-Dateien bleiben am urspruenglichen Ort.
@@ -83,7 +83,7 @@ Danach fragt der Provisioner interaktiv nach:
 
 ## Sicherheitsgrenzen
 
-- Der Zielchannel ist fest `storager2`.
+- Der Git-Zielbranch ist fest `storager`; die Laufzeitnamen wie Dienst und Pfade bleiben `storager2`.
 - Storager 1, dessen Container, Domain, Dienst, Daten und Backups sind gesperrt.
 - Die eigentliche Installation kommt aus dem privaten Storager-Repository; in diesem
   oeffentlichen Repository liegt keine zweite Provisioninglogik.
@@ -99,12 +99,13 @@ less /tmp/storager2-install.sh
 bash /tmp/storager2-install.sh
 ```
 
-Wenn du auch bei dieser URL plötzlich eine alte Version siehst, dann kannst du
-für absolute Konsistenz temporär per Commit-Pin arbeiten:
+Wenn du auch bei dieser URL plötzlich eine alte Version siehst, verwende nach
+Prüfung des gewünschten Installer-Commits dessen vollständige SHA statt `main`:
 
 ```bash
+INSTALLER_COMMIT='<vollständiger-geprüfter-Commit>'
 curl -fsSL \
-  https://raw.githubusercontent.com/Calcoon/storager2-installer/d77fbc9/install.sh
+  "https://raw.githubusercontent.com/Calcoon/storager2-installer/${INSTALLER_COMMIT}/install.sh"
 ```
 
 GitHub Packages ist fuer diesen Bootstrap nicht erforderlich. Falls Storager 2

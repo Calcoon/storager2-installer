@@ -27,21 +27,18 @@ case "$1" in
     [ -x "$GIT_ASKPASS" ]
     [ "$STORAGER2_BOOTSTRAP_TOKEN_FILE" = "$EXPECTED_TOKEN_FILE" ]
     case "$*" in *"x-access-token"*|*"test-token-never-log"*) exit 91 ;; esac
+    case "$*" in *"--single-branch --branch storager "*) ;; *) exit 95 ;; esac
     destination="${@: -1}"
     mkdir -p "$destination/scripts/storager2"
-    cat > "$destination/scripts/storager2/ct_provision.sh" <<'PROVISION'
-run timedatectl set-timezone "$TIMEZONE"
-PROVISION
     cat > "$destination/scripts/storager2/install.sh" <<'INNER'
 #!/bin/sh
-grep -Fq 'if ! timedatectl set-timezone "$timezone"; then' "$(dirname "$0")/ct_provision.sh" || exit 94
 printf '%s\n' "$STORAGER2_GIT_TOKEN_FILE" "$@" > "$BOOTSTRAP_TEST_RECORD"
 INNER
     chmod 0755 "$destination/scripts/storager2/install.sh"
     ;;
   -C)
     case "$3" in
-      branch) printf 'storager2\n' ;;
+      branch) printf 'storager\n' ;;
       rev-parse) printf '%040d\n' 7 ;;
       ls-files|update-index) ;;
       *) exit 92 ;;
@@ -62,11 +59,24 @@ output="$({
   STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
     "$REPO_ROOT/install.sh" --dry-run
 } 2>&1)"
+[[ "$output" == *"Quelle: https://github.com/Calcoon/Storager.git · Branch: storager"* ]]
+[[ "$output" == *"Checkout-Branch: storager"* ]]
 [[ "$output" == *"Gepruefter Zielcommit"* ]]
-[[ "$output" == *"ct_provision-Zeitbereichs-Konfiguration tolerant gepatcht in 1 Datei(en)"* ]]
 [[ "$output" != *"test-token-never-log"* ]]
+[[ "$output" != *"origin/storager2"* ]]
 mapfile -t record < "$RECORD_FILE"
 [[ "${record[0]}" == "$TOKEN_FILE" ]]
 [[ "${record[1]}" == "--dry-run" ]]
+
+trace_output="$({
+  PATH="$BIN_DIR:$PATH" \
+  EXPECTED_TOKEN_FILE="$TOKEN_FILE" \
+  BOOTSTRAP_TEST_RECORD="$RECORD_FILE" \
+  STORAGER2_BOOTSTRAP_TRACE=1 \
+  STORAGER2_GIT_TOKEN_FILE="$TOKEN_FILE" \
+    "$REPO_ROOT/install.sh" --dry-run
+} 2>&1)"
+[[ "$trace_output" == *"Branch: storager"* ]]
+[[ "$trace_output" != *"test-token-never-log"* ]]
 
 printf 'bootstrap_test: ok\n'
